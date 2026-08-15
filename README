@@ -1,4 +1,9 @@
-- Versão: 0.03
+- Versão: 0.06
 - Autor: Ezequiel Saldivia Zanotta
 - Título do projeto: Entrega contínua de uma plataforma de pedidos em microsserviços: do Docker Compose ao Kubernetes com observabilidade e CI/CD
 
+# Inicializar projeto
+
+# Executar estes comandos para inicializar o minikube e executar o projeto:
+minikube start --force
+kubectl apply -f k8s.yaml

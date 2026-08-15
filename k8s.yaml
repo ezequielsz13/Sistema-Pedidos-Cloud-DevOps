@@ -28,7 +28,6 @@ data:
   # Valor em Base64
   DB_PASSWORD: eTc3P3k3eSs1Nkc1
 ---
-# VERIFICAR
 
 # Banco de dados
 
@@ -133,7 +132,22 @@ spec:
           requests:
             storage: 2Gi
 ---
-# servico-pedidos
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: postgres-vpa
+  namespace: sistema-pedidos
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: StatefulSet
+    name: postgres
+  updatePolicy:
+    updateMode: "Auto"
+---
+
+########## servico-pedidos
+
 apiVersion: v1
 kind: Service
 metadata:
@@ -167,6 +181,13 @@ spec:
           command: ["node", "src/servico_pedidos.js"]
           ports:
             - containerPort: 8080
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
           env:
             - name: PORT
               valueFrom:
@@ -210,7 +231,29 @@ spec:
               - key: DB_PASSWORD
                 path: DB_PASSWORD
 ---
-# servico-pagamentos
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: servico-pedidos-hpa
+  namespace: sistema-pedidos
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: servico-pedidos
+  minReplicas: 1
+  maxReplicas: 5
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+---
+
+########## servico-pagamentos
+
 apiVersion: v1
 kind: Service
 metadata:
@@ -244,6 +287,13 @@ spec:
           command: ["node", "src/servico_pagamentos.js"]
           ports:
             - containerPort: 8080
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
           env:
             - name: PORT
               valueFrom:
@@ -287,7 +337,29 @@ spec:
               - key: DB_PASSWORD
                 path: DB_PASSWORD
 ---
-# servico-estoque
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: servico-pagamentos-hpa
+  namespace: sistema-pedidos
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: servico-pagamentos
+  minReplicas: 1
+  maxReplicas: 5
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+---
+
+########## servico-estoque
+
 apiVersion: v1
 kind: Service
 metadata:
@@ -321,6 +393,13 @@ spec:
           command: ["node", "src/servico_estoque.js"]
           ports:
             - containerPort: 8080
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
           env:
             - name: PORT
               valueFrom:
@@ -364,7 +443,29 @@ spec:
               - key: DB_PASSWORD
                 path: DB_PASSWORD
 ---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: servico-estoque-hpa
+  namespace: sistema-pedidos
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: servico-estoque
+  minReplicas: 1
+  maxReplicas: 5
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+---
+
 # API
+
 apiVersion: v1
 kind: Service
 metadata:
@@ -399,6 +500,13 @@ spec:
           command: ["node", "src/index.js"]
           ports:
             - containerPort: 8080
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
           env:
             - name: PORT
               value: "8080"
@@ -408,4 +516,24 @@ spec:
               value: "http://servico-pagamentos:8080"
             - name: SERVICO_ESTOQUE_URL
               value: "http://servico-estoque:8080"
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: api-hpa
+  namespace: sistema-pedidos
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: api
+  minReplicas: 1
+  maxReplicas: 5
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
 ---
