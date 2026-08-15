@@ -1,0 +1,411 @@
+# Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sistema-pedidos
+---
+# ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+data:
+  DB_HOST: postgres
+  DB_PORT: "5432"
+  DB_NAME: db_app_pedidos
+  DB_USER: db_user_pedidos
+  NODE_ENV: production
+  PORT: "8080"
+---
+# Secret
+apiVersion: v1
+kind: Secret
+metadata:
+  name: app-secret
+  namespace: sistema-pedidos
+type: Opaque
+data:
+  # Valor em Base64
+  DB_PASSWORD: eTc3P3k3eSs1Nkc1
+---
+# VERIFICAR
+
+# Banco de dados
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+  namespace: sistema-pedidos
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: sistema-pedidos
+spec:
+  selector:
+    app: postgres
+  ports:
+    - name: db
+      port: 5432
+      targetPort: 5432
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: sistema-pedidos
+spec:
+  serviceName: postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16
+          ports:
+            - containerPort: 5432
+              name: db
+          env:
+            - name: POSTGRES_DB
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: DB_NAME
+            - name: POSTGRES_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: DB_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: app-secret
+                  key: DB_PASSWORD
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+            - name: db-secret-volume
+              mountPath: /run/secrets
+              readOnly: true
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - "pg_isready -U db_user_pedidos -d db_app_pedidos"
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - "pg_isready -U db_user_pedidos -d db_app_pedidos"
+            initialDelaySeconds: 10
+            periodSeconds: 10
+      volumes:
+        - name: db-secret-volume
+          secret:
+            secretName: app-secret
+            items:
+              - key: DB_PASSWORD
+                path: DB_PASSWORD
+  volumeClaimTemplates:
+    - metadata:
+        name: postgres-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 2Gi
+---
+# servico-pedidos
+apiVersion: v1
+kind: Service
+metadata:
+  name: servico-pedidos
+  namespace: sistema-pedidos
+spec:
+  selector:
+    app: servico-pedidos
+  ports:
+    - port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: servico-pedidos
+  namespace: sistema-pedidos
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: servico-pedidos
+  template:
+    metadata:
+      labels:
+        app: servico-pedidos
+    spec:
+      containers:
+        - name: servico-pedidos
+          image: node:20-alpine
+          command: ["node", "src/servico_pedidos.js"]
+          ports:
+            - containerPort: 8080
+          env:
+            - name: PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: PORT
+            - name: DB_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: DB_HOST
+            - name: DB_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: DB_PORT
+            - name: DB_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: DB_NAME
+            - name: DB_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: DB_USER
+            - name: DB_PASSWORD_FILE
+              valueFrom:
+                secretKeyRef:
+                  name: app-secret
+                  key: DB_PASSWORD
+          volumeMounts:
+            - name: db-secret-volume
+              mountPath: /run/secrets
+              readOnly: true
+      volumes:
+        - name: db-secret-volume
+          secret:
+            secretName: app-secret
+            items:
+              - key: DB_PASSWORD
+                path: DB_PASSWORD
+---
+# servico-pagamentos
+apiVersion: v1
+kind: Service
+metadata:
+  name: servico-pagamentos
+  namespace: sistema-pedidos
+spec:
+  selector:
+    app: servico-pagamentos
+  ports:
+    - port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: servico-pagamentos
+  namespace: sistema-pedidos
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: servico-pagamentos
+  template:
+    metadata:
+      labels:
+        app: servico-pagamentos
+    spec:
+      containers:
+        - name: servico-pagamentos
+          image: node:20-alpine
+          command: ["node", "src/servico_pagamentos.js"]
+          ports:
+            - containerPort: 8080
+          env:
+            - name: PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: PORT
+            - name: DB_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: DB_HOST
+            - name: DB_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: DB_PORT
+            - name: DB_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: DB_NAME
+            - name: DB_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: DB_USER
+            - name: DB_PASSWORD_FILE
+              valueFrom:
+                secretKeyRef:
+                  name: app-secret
+                  key: DB_PASSWORD
+          volumeMounts:
+            - name: db-secret-volume
+              mountPath: /run/secrets
+              readOnly: true
+      volumes:
+        - name: db-secret-volume
+          secret:
+            secretName: app-secret
+            items:
+              - key: DB_PASSWORD
+                path: DB_PASSWORD
+---
+# servico-estoque
+apiVersion: v1
+kind: Service
+metadata:
+  name: servico-estoque
+  namespace: sistema-pedidos
+spec:
+  selector:
+    app: servico-estoque
+  ports:
+    - port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: servico-estoque
+  namespace: sistema-pedidos
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: servico-estoque
+  template:
+    metadata:
+      labels:
+        app: servico-estoque
+    spec:
+      containers:
+        - name: servico-estoque
+          image: node:20-alpine
+          command: ["node", "src/servico_estoque.js"]
+          ports:
+            - containerPort: 8080
+          env:
+            - name: PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: PORT
+            - name: DB_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: DB_HOST
+            - name: DB_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: DB_PORT
+            - name: DB_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: DB_NAME
+            - name: DB_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: DB_USER
+            - name: DB_PASSWORD_FILE
+              valueFrom:
+                secretKeyRef:
+                  name: app-secret
+                  key: DB_PASSWORD
+          volumeMounts:
+            - name: db-secret-volume
+              mountPath: /run/secrets
+              readOnly: true
+      volumes:
+        - name: db-secret-volume
+          secret:
+            secretName: app-secret
+            items:
+              - key: DB_PASSWORD
+                path: DB_PASSWORD
+---
+# API
+apiVersion: v1
+kind: Service
+metadata:
+  name: api
+  namespace: sistema-pedidos
+spec:
+  selector:
+    app: api
+  ports:
+    - port: 8080
+      targetPort: 8080
+  type: NodePort
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  namespace: sistema-pedidos
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api
+  template:
+    metadata:
+      labels:
+        app: api
+    spec:
+      containers:
+        - name: api
+          image: node:20-alpine
+          command: ["node", "src/index.js"]
+          ports:
+            - containerPort: 8080
+          env:
+            - name: PORT
+              value: "8080"
+            - name: SERVICO_PEDIDOS_URL
+              value: "http://servico-pedidos:8080"
+            - name: SERVICO_PAGAMENTOS_URL
+              value: "http://servico-pagamentos:8080"
+            - name: SERVICO_ESTOQUE_URL
+              value: "http://servico-estoque:8080"
+---

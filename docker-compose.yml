@@ -1,0 +1,92 @@
+services:
+
+  api:
+    build: .
+    environment:
+      - PORT=8080
+      - SERVICO_PEDIDOS_URL=http://servico_pedidos:8080
+      - SERVICO_PAGAMENTOS_URL=http://servico_pagamentos:8080
+      - SERVICO_ESTOQUE_URL=http://servico_estoque:8080
+    depends_on:
+      db:
+        condition: service_healthy
+      servico_pedidos:
+        condition: service_started
+      servico_pagamentos:
+        condition: service_started
+      servico_estoque:
+        condition: service_started
+
+  servico_pedidos:
+    build: .
+    command: ["node","src/servico_pedidos.js"]
+    environment:
+      - PORT=8080
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=db_app_pedidos
+      - DB_USER=db_user_pedidos
+      - DB_PASSWORD_FILE=/run/secrets/db_password
+    secrets:
+      - db_password
+    depends_on:
+      db:
+        condition: service_healthy
+
+  servico_pagamentos:
+    build: .
+    command: ["node","src/servico_pagamentos.js"]
+    environment:
+      - PORT=8080
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=db_app_pedidos
+      - DB_USER=db_user_pedidos
+      - DB_PASSWORD_FILE=/run/secrets/db_password
+    secrets:
+      - db_password
+    depends_on:
+      db:
+        condition: service_healthy
+
+  servico_estoque:
+    build: .
+    command: ["node","src/servico_estoque.js"]
+    environment:
+      - PORT=8080
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=db_app_pedidos
+      - DB_USER=db_user_pedidos
+      - DB_PASSWORD_FILE=/run/secrets/db_password
+    secrets:
+      - db_password
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:16
+    container_name: postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=db_app_pedidos
+      - POSTGRES_USER=db_user_pedidos
+      - POSTGRES_PASSWORD_FILE=/run/secrets/db_password
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+    secrets:
+      - db_password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U db_user_pedidos -d db_app_pedidos"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+secrets:
+  db_password:
+    file: ./secrets/db_password.txt
+
+volumes:
+  dbdata:
