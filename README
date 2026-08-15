@@ -1,9 +1,9 @@
 - Versão: 0.06
 - Autor: Ezequiel Saldivia Zanotta
 - Título do projeto: Entrega contínua de uma plataforma de pedidos em microsserviços: do Docker Compose ao Kubernetes com observabilidade e CI/CD
+- Link do vídeo de apresentação do projeto: https://youtu.be/tUlAN31l-xI
+- Repositório do projeto no GitHub: https://github.com/ezequielsz13/Sistema-Pedidos-Cloud-DevOps
 
-# Inicializar projeto
-
-# Executar estes comandos para inicializar o minikube e executar o projeto:
-minikube start --force
+# Seguir esta sequência de comandos para inicializar o Kubernetes e executar o projeto:
+minikube start --force 
 kubectl apply -f k8s.yaml
